@@ -1,0 +1,26 @@
+@import url('https://fonts.googleapis.com/css2?family=UnifrakturMaguntia&family=IM+Fell+English:ital@0;1&display=swap');
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  background: #050306;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+#canvas-container canvas {
+  display: block;
+  box-shadow:
+    0 0 0 1px rgba(140, 10, 10, 0.3),
+    0 0 40px rgba(120, 0, 0, 0.25),
+    0 0 100px rgba(80, 0, 0, 0.15),
+    0 60px 120px rgba(0, 0, 0, 0.9);
+}
