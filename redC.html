@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Red Circle</title>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=UnifrakturMaguntia&family=IM+Fell+English:ital@0;1&display=swap');
+
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+
+      html, body {
+        width: 100%; height: 100%;
+        background: #050306;
+        display: flex; align-items: center; justify-content: center;
+        overflow: hidden;
+        font-family: 'IM Fell English', serif;
+      }
+
+      #canvas-container canvas {
+        display: block;
+        box-shadow:
+          0 0 0 1px rgba(140, 10, 10, 0.3),
+          0 0 40px rgba(120, 0, 0, 0.25),
+          0 0 100px rgba(80, 0, 0, 0.15),
+          0 60px 120px rgba(0, 0, 0, 0.9);
+      }
+    </style>
+  </head>
+  <body>
+    <main id="canvas-container"></main>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.3/p5.min.js"></script>
+    <script>
+// ─── Config ───────────────────────────────────────────────────────
+const ACCENT       = [180, 20, 20];
+const ACCENT_BRIGHT= [220, 60, 60];
+const FRAME_PAD    = 28;
+
+let drips = [], smokeParticles = [], pulseParticles = [];
+let t = 0;
+let circleScale = 0;         // entrance animation
+let hovered = false;
+let clickRipples = [];
+
+// ─── Drip (same as launcher) ──────────────────────────────────────
+class Drip {
+  constructor(x) {
+    this.x = x;
+    this.y = FRAME_PAD - 2;
+    this.len   = random(10, 38);
+    this.speed = random(0.3, 1.1);
+    this.w     = random(1.5, 3.5);
+    this.alpha = random(160, 230);
+    this.r = random() > 0.5 ? 160 : 30;
+    this.g = 0;
+    this.b = this.r === 30 ? 120 : 0;
+  }
+  update() { this.y += this.speed; }
+  draw() {
+    strokeWeight(this.w);
+    stroke(this.r, this.g, this.b, this.alpha);
+    line(this.x, this.y - this.len, this.x, this.y);
+    noStroke();
+    fill(this.r, this.g, this.b, this.alpha * 0.6);
+    ellipse(this.x, this.y, this.w * 2.5, this.w * 2.5);
+  }
+  isDead() { return this.y - this.len > height; }
+}
+
+class Smoke {
+  constructor(x, y) {
+    this.x = x + random(-20, 20);
+    this.y = y;
+    this.vx = random(-0.4, 0.4);
+    this.vy = random(-1, -0.3);
+    this.alpha = random(60, 120);
+    this.size  = random(6, 16);
+  }
+  update() {
+    this.x += this.vx; this.y += this.vy;
+    this.alpha -= 2.5; this.size += 0.3;
+  }
+  draw() {
+    noStroke();
+    fill(ACCENT_BRIGHT[0], ACCENT_BRIGHT[1], ACCENT_BRIGHT[2], this.alpha);
+    ellipse(this.x, this.y, this.size);
+  }
+  isDead() { return this.alpha <= 0; }
+}
+
+class PulseRing {
+  constructor(x, y) {
+    this.x = x; this.y = y;
+    this.r = 0; this.alpha = 200;
+  }
+  update() { this.r += 3; this.alpha -= 4; }
+  draw() {
+    noFill();
+    stroke(ACCENT_BRIGHT[0], ACCENT_BRIGHT[1], ACCENT_BRIGHT[2], this.alpha);
+    strokeWeight(1.5);
+    ellipse(this.x, this.y, this.r * 2);
+  }
+  isDead() { return this.alpha <= 0; }
+}
+
+// ─── Setup ────────────────────────────────────────────────────────
+function setup() {
+  let cnv = createCanvas(620, 460);
+  cnv.parent("canvas-container");
+  for (let i = 0; i < 12; i++) {
+    let d = new Drip(random(FRAME_PAD + 10, width - FRAME_PAD - 10));
+    d.y = random(FRAME_PAD, height * 0.4);
+    drips.push(d);
+  }
+}
+
+// ─── Draw ─────────────────────────────────────────────────────────
+function draw() {
+  background(6, 4, 8);
+  t += 0.01;
+  circleScale = min(circleScale + 0.025, 1);
+
+  drawAtmosphere();
+  drawFrame();
+  drawTitle();
+  drawRedCircle();
+  drawSubtitle();
+
+  // Drips
+  if (frameCount % 18 === 0)
+    drips.push(new Drip(random(FRAME_PAD + 10, width - FRAME_PAD - 10)));
+  drips = drips.filter(d => !d.isDead());
+  drips.forEach(d => { d.update(); d.draw(); });
+
+  // Smoke
+  smokeParticles = smokeParticles.filter(s => !s.isDead());
+  smokeParticles.forEach(s => { s.update(); s.draw(); });
+
+  // Pulse rings
+  pulseParticles = pulseParticles.filter(p => !p.isDead());
+  pulseParticles.forEach(p => { p.update(); p.draw(); });
+
+  // Click ripples
+  clickRipples = clickRipples.filter(r => !r.isDead());
+  clickRipples.forEach(r => { r.update(); r.draw(); });
+
+  drawFrameOverlay();
+  drawBackButton();
+}
+
+function drawAtmosphere() {
+  noStroke();
+  for (let r = max(width, height); r > 0; r -= 20) {
+    let alpha = map(r, 0, max(width, height), 0, 18);
+    fill(80, 0, 0, alpha);
+    ellipse(width / 2, height / 2, r * 2);
+  }
+  for (let i = 0; i < 3; i++) {
+    let wx = (sin(t * 0.4 + i * 2.1) * 0.5 + 0.5) * width;
+    let wy = height * 0.75 + sin(t * 0.3 + i) * 20;
+    for (let s = 80; s > 0; s -= 15) {
+      fill(30, 10, 40, map(s, 0, 80, 0, 6));
+      ellipse(wx, wy, s * 3, s * 1.2);
+    }
+  }
+}
+
+function drawFrame() {
+  let p = FRAME_PAD;
+  stroke(80, 10, 10); strokeWeight(3); noFill();
+  rect(p, p, width - p * 2, height - p * 2);
+  stroke(140, 15, 15, 180); strokeWeight(0.8);
+  rect(p + 6, p + 6, width - (p + 6) * 2, height - (p + 6) * 2);
+  drawCorner(p, p, 0); drawCorner(width - p, p, 1);
+  drawCorner(p, height - p, 2); drawCorner(width - p, height - p, 3);
+}
+
+function drawCorner(x, y, corner) {
+  push(); translate(x, y);
+  scale((corner===1||corner===3)?-1:1, (corner===2||corner===3)?-1:1);
+  stroke(160, 20, 20, 200); strokeWeight(1); noFill();
+  line(0, 0, 18, 0); line(0, 0, 0, 18);
+  fill(120, 10, 10, 160); noStroke();
+  beginShape();
+  vertex(0,-5); vertex(5,0); vertex(0,5); vertex(-5,0);
+  endShape(CLOSE);
+  stroke(160, 20, 20, 120); strokeWeight(0.8);
+  line(9, 0, 9, 5); line(0, 9, 5, 9);
+  pop();
+}
+
+function drawFrameOverlay() {
+  noStroke();
+  for (let y = FRAME_PAD + 6; y < height - FRAME_PAD - 6; y += 4) {
+    fill(0, 0, 0, 18);
+    rect(FRAME_PAD + 6, y, width - (FRAME_PAD + 6) * 2, 2);
+  }
+  fill(6, 4, 8); noStroke();
+  rect(0, 0, width, FRAME_PAD - 1);
+  rect(0, height - FRAME_PAD + 1, width, FRAME_PAD);
+  rect(0, 0, FRAME_PAD - 1, height);
+  rect(width - FRAME_PAD + 1, 0, FRAME_PAD, height);
+}
+
+function drawTitle() {
+  noStroke();
+  for (let s = 40; s > 0; s -= 8) {
+    fill(160, 0, 0, map(s, 0, 40, 0, 10));
+    ellipse(width / 2, 62, s * 5, s * 1.5);
+  }
+  fill(200, 180, 140);
+  textFont("serif"); textSize(15); textStyle(BOLD); textAlign(CENTER, CENTER);
+  text("⸸ RED CIRCLE ⸸", width / 2, 62);
+  stroke(100, 15, 15, 160); strokeWeight(0.8);
+  line(width / 2 - 110, 76, width / 2 + 110, 76);
+  noStroke(); fill(160, 20, 20, 120); textSize(10);
+  text("✦", width / 2 - 80, 62);
+  text("✦", width / 2 + 80, 62);
+}
+
+function drawRedCircle() {
+  let cx = width / 2;
+  let cy = height / 2 + 20;
+  let baseR = 100;
+  let pulse = sin(t * 2) * 4;
+  let sc = circleScale < 1 ? easeOutElastic(circleScale) : 1;
+
+  // Check hover
+  let d = dist(mouseX, mouseY, cx, cy);
+  hovered = d < (baseR + 10) * sc;
+  if (hovered) cursor(HAND);
+  else cursor("default");
+
+  let hv = hovered ? 1 : 0;
+
+  // Spawn smoke on hover
+  if (hovered && frameCount % 4 === 0) {
+    let angle = random(TWO_PI);
+    smokeParticles.push(new Smoke(
+      cx + cos(angle) * baseR * sc,
+      cy + sin(angle) * baseR * sc
+    ));
+  }
+
+  // Pulse rings (continuous)
+  if (frameCount % 40 === 0)
+    pulseParticles.push(new PulseRing(cx, cy));
+
+  push();
+  translate(cx, cy);
+  scale(sc);
+
+  // Outer glow layers
+  noStroke();
+  for (let spread = 60; spread > 0; spread -= 8) {
+    let a = map(spread, 0, 60, 0, hovered ? 30 : 14) * (sin(t * 1.5) * 0.2 + 0.8);
+    fill(ACCENT_BRIGHT[0], ACCENT_BRIGHT[1], ACCENT_BRIGHT[2], a);
+    ellipse(0, 0, (baseR + spread + pulse) * 2);
+  }
+
+  // Drip blood texture simulation — radial lines
+  stroke(80, 5, 5, 60);
+  strokeWeight(0.5);
+  for (let a = 0; a < TWO_PI; a += PI / 18) {
+    let r1 = baseR - 8; let r2 = baseR + 4 + sin(a * 7 + t) * 3;
+    line(cos(a) * r1, sin(a) * r1, cos(a) * r2, sin(a) * r2);
+  }
+
+  // Main circle fill — radial gradient simulation
+  noStroke();
+  for (let r = baseR; r > 0; r -= 3) {
+    let bright = map(r, 0, baseR, 200, 80);
+    let alpha = map(r, 0, baseR, 255, 180);
+    fill(bright + (hovered ? 20 : 0), 10, 10, alpha);
+    ellipse(0, 0, r * 2);
+  }
+
+  // Inner shine
+  noStroke();
+  for (let r = 30; r > 0; r -= 5) {
+    fill(255, 80, 80, map(r, 0, 30, 0, 40));
+    ellipse(-18, -22, r * 2, r * 1.4);
+  }
+
+  // Outer ring
+  strokeWeight(hovered ? 2.5 : 1.5);
+  stroke(ACCENT_BRIGHT[0], ACCENT_BRIGHT[1], ACCENT_BRIGHT[2], hovered ? 255 : 180);
+  noFill();
+  ellipse(0, 0, baseR * 2 + pulse * 2);
+
+  // Secondary thin ring
+  strokeWeight(0.5);
+  stroke(200, 40, 40, 100);
+  ellipse(0, 0, (baseR + 10 + pulse) * 2);
+
+  // Rotating rune marks
+  push();
+  rotate(t * 0.3);
+  stroke(160, 20, 20, 80); strokeWeight(0.8); noFill();
+  for (let i = 0; i < 8; i++) {
+    let a = (TWO_PI / 8) * i;
+    let r = baseR + 20;
+    push();
+    translate(cos(a) * r, sin(a) * r);
+    rotate(a + PI / 2);
+    line(-4, 0, 4, 0); line(0, -4, 0, 4);
+    pop();
+  }
+  pop();
+
+  // Hover label
+  if (hovered) {
+    noStroke();
+    fill(200, 180, 140, 200);
+    textFont("serif"); textSize(11); textStyle(ITALIC); textAlign(CENTER, CENTER);
+    text("CLICK TO ENTER", 0, baseR + 28);
+  }
+
+  pop();
+}
+
+function drawSubtitle() {
+  noStroke();
+  fill(120, 90, 70, 160);
+  textFont("serif"); textSize(10); textStyle(ITALIC); textAlign(CENTER, CENTER);
+  text("vero279.github.io/RedCircle/", width / 2, height - FRAME_PAD - 22);
+}
+
+function drawBackButton() {
+  let bx = FRAME_PAD + 14, by = FRAME_PAD + 14;
+  let bw = 80, bh = 22;
+  let over = mouseX >= bx && mouseX <= bx + bw && mouseY >= by && mouseY <= by + bh;
+
+  noFill();
+  stroke(140, 15, 15, over ? 220 : 120); strokeWeight(over ? 1.5 : 0.8);
+  rect(bx, by, bw, bh);
+
+  noStroke();
+  fill(200, 180, 140, over ? 220 : 120);
+  textFont("serif"); textSize(10); textStyle(NORMAL); textAlign(LEFT, CENTER);
+  text("⟵ BACK", bx + 8, by + bh / 2);
+
+  if (over) cursor(HAND);
+}
+
+// ─── Interaction ──────────────────────────────────────────────────
+function mousePressed() {
+  // Back button
+  let bx = FRAME_PAD + 14, by = FRAME_PAD + 14, bw = 80, bh = 22;
+  if (mouseX >= bx && mouseX <= bx + bw && mouseY >= by && mouseY <= by + bh) {
+    window.history.back();
+    return;
+  }
+  // Circle click
+  let cx = width / 2, cy = height / 2 + 20, sc = 1;
+  if (dist(mouseX, mouseY, cx, cy) < 110) {
+    clickRipples.push(new PulseRing(cx, cy));
+    clickRipples.push(new PulseRing(cx, cy));
+    // actual navigation would go here
+  }
+}
+
+function mouseMoved() {
+  // cursor handled in drawRedCircle & drawBackButton
+}
+
+function easeOutElastic(x) {
+  const c4 = (2 * Math.PI) / 3;
+  return x === 0 ? 0 : x === 1 ? 1 :
+    pow(2, -10 * x) * sin((x * 10 - 0.75) * c4) + 1;
+}
+    </script>
+  </body>
+</html>
