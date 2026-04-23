@@ -2,14 +2,14 @@
 const projects = [
   {
     label: "Red Circle",
-    url: "https://vero279.github.io/RedCircle/",
+    url: "https://markelomc-a11y.github.io/RedC/",
     accent: [180, 20, 20],
     accentBright: [220, 60, 60],
     symbol: "✦",
   },
   {
     label: "Blue Square",
-    url: "https://vero279.github.io/BlueSquare/",
+    url: "https://markelomc-a11y.github.io/BlueS/",
     accent: [30, 60, 160],
     accentBright: [70, 110, 220],
     symbol: "✦",
